@@ -9,7 +9,7 @@ from catalog.core import Catalog
 class CollectionTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
-        self.base = Path(self.temp.name)
+        self.base = Path(self.temp.name).resolve()
         self.c = Catalog(self.base/'data')
         self.c.seed_demo()
         self.ids = [v['id'] for v in self.c.videos({})['items']]

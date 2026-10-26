@@ -1,5 +1,11 @@
 # Canvis
 
+## 1.0.1 — 2026-10-26
+
+- Normalització de rutes temporals a les proves: els noms curts de Windows (8.3) i les rutes completes no provoquen falses fallades a GitHub Actions.
+- Clarificació de l'obertura amb selecció del vídeo i dels recursos opcionals a la documentació.
+- Mateix format de catàleg i comportament funcional que la versió 1.0.0.
+
 ## 1.0.0 — 2026-10-26
 
 Primera versió funcional de Memòria per a ús local a Windows.

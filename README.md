@@ -1,6 +1,6 @@
 # Memòria
 
-**Versió 1.0.0 · Catàleg local de vídeos per a Windows**
+**Versió 1.0.1 · Catàleg local de vídeos per a Windows**
 
 Memòria ajuda a retrobar moments enregistrats en vídeo, descriure’ls i seleccionar material per a muntatges. Consulta carpetes de diferents discos des d’una sola graella, amb descripcions, etiquetes, favorits i col·leccions.
 
@@ -38,7 +38,7 @@ No obris `web/index.html` directament ni publiquis aquesta aplicació amb GitHub
 - Carpetes i subcarpetes; filtre per propietari, dates, tipus Original/Muntatge, etiqueta, estat de catalogació i favorits.
 - Desament automàtic i catalogació progressiva: pendent si falta descripció o etiqueta; excepció conscient per a vídeos sense anotacions.
 - Col·leccions per preparar muntatges, sense copiar ni moure vídeos.
-- Miniatures, metadades i reproducció directa dels formats compatibles. Els formats antics s’obren des de la seva carpeta amb el programari de Windows. **No es generen conversions ni còpies completes dels vídeos.**
+- Miniatures, metadades i reproducció directa dels formats compatibles. Obrir la carpeta selecciona el fitxer concret a l’Explorador; els formats antics es poden reproduir amb el programari de Windows. **No es generen conversions ni còpies completes dels vídeos.**
 - Identitat per contingut i recuperació explícita de vídeos o carpetes moguts.
 - Correcció de data i hora només al catàleg, individual o per desplaçament en minuts de diversos vídeos.
 - Exclusió reversible de vídeos o carpetes senceres, incloent vídeos futurs de les subcarpetes.
@@ -118,7 +118,7 @@ Consulta [arquitectura](docs/ARQUITECTURA.md), [contribució](CONTRIBUTING.md), 
 
 Creat per [Israel Belchi](https://ibelchi.github.io). Inspirat per la feina de [Van Neistat](https://www.youtube.com/@vanneistat).
 
-El codi original es publica amb [llicència MIT](LICENSE). El retrat de Van Neistat i els programes externs tenen un tractament independent: consulta [THIRD_PARTY.md](THIRD_PARTY.md).
+El codi original es publica amb [llicència MIT](LICENSE). La fotografia opcional d’instal·lació local no es distribueix. Per als recursos i programes externs, consulta [THIRD_PARTY.md](THIRD_PARTY.md).
 
 ## Evolució possible
 

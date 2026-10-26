@@ -15,7 +15,7 @@ from catalog.server import LocalServer
 class CatalogTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.base = Path(self.tmp.name)
+        self.base = Path(self.tmp.name).resolve()
         self.c = Catalog(self.base / 'data')
         self.c.seed_demo()
 
@@ -135,7 +135,7 @@ class CatalogTests(unittest.TestCase):
 class HttpTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.base = Path(self.tmp.name)
+        self.base = Path(self.tmp.name).resolve()
         self.c = Catalog(self.base / 'data')
         self.c.seed_demo()
         self.server = LocalServer(self.c, 0)

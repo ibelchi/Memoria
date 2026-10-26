@@ -13,7 +13,7 @@ from catalog.core import Catalog, now
 class IdentityTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
-        self.base = Path(self.temp.name)
+        self.base = Path(self.temp.name).resolve()
         self.c = Catalog(self.base/'data')
         self.root = self.base/'media'
         self.root.mkdir()

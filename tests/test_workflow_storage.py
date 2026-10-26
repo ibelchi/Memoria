@@ -12,7 +12,7 @@ from catalog.storage import read_pointer, write_pointer
 class WorkflowTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
-        self.base = Path(self.temp.name)
+        self.base = Path(self.temp.name).resolve()
         self.c = Catalog(self.base/'data')
         self.root = self.base/'videos'
         self.root.mkdir()
@@ -294,7 +294,7 @@ class WorkflowTests(unittest.TestCase):
 class StorageTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
-        self.base = Path(self.temp.name)
+        self.base = Path(self.temp.name).resolve()
         self.c = Catalog(self.base/'data')
         self.c.seed_demo()
         self.ident = self.c.videos({'state': 'pending'})['items'][-1]['id']

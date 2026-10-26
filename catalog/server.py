@@ -30,7 +30,7 @@ class LocalServer(ThreadingHTTPServer):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = 'MemoriaLocal/1.0.0'
+    server_version = 'MemoriaLocal/1.0.1'
 
     def log_message(self, *args):
         pass
@@ -98,7 +98,7 @@ class Handler(BaseHTTPRequestHandler):
             query = {k: v[0] for k, v in parse_qs(parsed.query).items()}
             if method == 'GET':
                 if path == '/api/config':
-                    self.respond({'app': 'cataleg-videos', 'version': '1.0.0', 'token': self.server.token,
+                    self.respond({'app': 'cataleg-videos', 'version': '1.0.1', 'token': self.server.token,
                                   'catalog_id': c.catalog_id, 'data_dir': str(c.data_dir), 'shell_restricted': restricted_desktop(),
                                   'owners': [{'id': ident, 'name': name} for ident, name in OWNERS.items()],
                                   'ffmpeg': bool(executable('ffmpeg')), 'ffprobe': bool(executable('ffprobe'))})
