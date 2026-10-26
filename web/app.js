@@ -42,12 +42,22 @@ async function flush(id){
 async function flushAll(){await Promise.all([...state.drafts.keys()].map(flush));}
 function currentQuery(){const p=new URLSearchParams({page:state.page,limit:$('page-size').value,owner:$('owner-filter').value,video_type:$('type-filter').value,excluded:$('excluded-filter').checked?'1':'',favorite:$('favorite-filter').checked?'1':'',collection:state.collection,q:$('query').value,root:state.root,folder:state.folder,state:$('state').value,start:$('date-start').value,end:$('date-end').value,unknown:$('unknown-date').checked?'1':'',sort:$('sort').value,tags:$('tag-filter').value});return p;}
 async function load(){
-  const seq=++state.loadSeq;const result=await api('/api/videos?'+currentQuery());if(seq!==state.loadSeq)return;
+  const seq=++state.loadSeq;const repeated=$('duplicates-filter').checked;const result=await api((repeated?'/api/duplicates?':'/api/videos?')+currentQuery());if(seq!==state.loadSeq)return;
   state.items=result.items;state.total=result.total;state.pages=result.pages;state.page=result.page;
   if(state.page>state.pages){state.page=state.pages;return load();}
   $('demo-notice').hidden=!state.items.some(v=>v.demo)&&!state.roots?.some(r=>r.id==='demo');
   $('count').textContent=state.total+' vídeo'+(state.total===1?'':'s')+(state.folder?' · inclou subcarpetes':'');
-  $('grid').replaceChildren();for(const v of state.items)$('grid').append(card(v));
+  $('grid').replaceChildren();$('grid').classList.toggle('duplicate-results',repeated);
+  $('duplicates-note').hidden=!repeated;$('sort').disabled=repeated;
+  $('page-size').setAttribute('aria-label',repeated?'Grups per pàgina':'Vídeos per pàgina');
+  if(repeated){
+    $('count').textContent=result.total_groups+' grups · '+result.total+' vídeos · '+result.extra_copies+' còpies addicionals';
+    $('duplicates-note').textContent='Contingut idèntic segons l’empremta SHA-256 completa de la darrera exploració. Els filtres trien grups: si una còpia coincideix, es mostren totes les còpies del grup, ordenades per ruta. La paginació compta grups i no els divideix. Els exclosos es consulten per separat. Actualitza les carpetes si els fitxers han canviat. No es fusiona ni s’elimina res.'+(result.unverified?' Hi ha '+result.unverified+' vídeos sense empremta completa: actualitza les carpetes per comprovar-los.':'');
+    for(const group of result.groups){
+      const section=element('section','duplicate-group');const title=element('h2','',group.items.length+' còpies de contingut idèntic');section.append(title);
+      const grid=element('div','grid duplicate-grid');for(const v of group.items)grid.append(card(v));section.append(grid);$('grid').append(section);
+    }
+  }else for(const v of state.items)$('grid').append(card(v));
   $('empty').hidden=!!state.items.length;
   $('empty-title').textContent=state.roots?.length?'No hi ha resultats':'Encara no hi ha vídeos';
   $('empty-text').textContent=state.roots?.length?'Prova altres paraules o neteja els filtres. Si la carpeta és nova, actualitza-la des de Configuració.':'Prem el + de la barra lateral per incorporar vídeos.';
@@ -75,6 +85,13 @@ function card(v){
   const save=element('span','card-save',d.error?'No s’ha pogut desar':d.rev!==d.saved?'Esborrany pendent':'');save.dataset.save=v.id;body.append(save);
   if(!v.available||!v.root_available)body.append(element('div','card-warning','Fitxer o disc no disponible · anotacions conservades'));
   if(v.extraction==='error')body.append(element('div','card-warning','Error de metadades · pots continuar anotant'));
+  if($('duplicates-filter').checked){
+    body.append(element('p','duplicate-owner','Propietari: '+v.owner_name));
+    body.append(element('pre','duplicate-path',v.full_path));
+    if(!v.matches_filters)body.append(element('p','duplicate-context','Una altra còpia d’aquest grup coincideix amb els filtres.'));
+    const collections=element('p','duplicate-collections','Col·leccions: '+((v.collections||[]).map(c=>c.name).join(', ')||'cap'));body.append(collections);
+    const reveal=element('button','secondary duplicate-reveal','Obre la carpeta');reveal.disabled=!v.available||!v.root_available||!!v.demo;reveal.onclick=()=>openDesktop('reveal',v);body.append(reveal);
+  }
   article.append(picture,body);return article;
 }
 async function refreshNavigation(){
@@ -144,10 +161,10 @@ async function initialize(){
   await refreshNavigation();await load();
 }
 $('query').oninput=()=>{clearTimeout(queryTimer);queryTimer=setTimeout(safe(async()=>{await flushAll();state.page=1;await load();}),200);};
-for(const id of ['type-filter','date-start','date-end','state','tag-filter','excluded-filter','unknown-date','favorite-filter','sort','owner-filter'])$(id).onchange=safe(async()=>{await flushAll();state.page=1;await load();});
+for(const id of ['type-filter','date-start','date-end','state','tag-filter','excluded-filter','unknown-date','favorite-filter','duplicates-filter','sort','owner-filter'])$(id).onchange=safe(async()=>{await flushAll();state.page=1;await load();});
 $('all').onclick=safe(()=>setScope());$('unreviewed').onclick=safe(()=>setScope('','','Pendents de catalogar',true));
 $('filter-toggle').onclick=()=>{$('filters').hidden=!$('filters').hidden;$('filter-toggle').setAttribute('aria-expanded',String(!$('filters').hidden));};
-$('clear-filters').onclick=safe(async()=>{await flushAll();for(const id of ['query','type-filter','date-start','date-end','state','tag-filter','owner-filter'])$(id).value='';$('excluded-filter').checked=false;$('unknown-date').checked=false;$('favorite-filter').checked=false;state.page=1;await load();});
+$('clear-filters').onclick=safe(async()=>{await flushAll();for(const id of ['query','type-filter','date-start','date-end','state','tag-filter','owner-filter'])$(id).value='';$('excluded-filter').checked=false;$('unknown-date').checked=false;$('favorite-filter').checked=false;$('duplicates-filter').checked=false;state.page=1;await load();});
 for(const suffix of ['', '-top']){
   $('previous-page'+suffix).onclick=safe(async()=>{await flushAll();state.page=Math.max(1,state.page-1);await load();window.scrollTo(0,0);});
   $('next-page'+suffix).onclick=safe(async()=>{await flushAll();state.page=Math.min(state.pages,state.page+1);await load();window.scrollTo(0,0);});
@@ -397,8 +414,8 @@ $('shift-form').onsubmit=safe(async e=>{e.preventDefault();await flushAll();awai
 
 function unsupportedInBrowser(v){return !['h264','vp8','vp9','av1'].includes(v.codec)||!/\.(mp4|m4v|webm)$/i.test(v.relative_path);}
 
-async function openDesktop(action){
- const v=state.current;if(!v)return;
+async function openDesktop(action,v=state.current){
+ if(!v)return;
  try{const result=await api('/api/videos/'+v.id+'/'+action,'POST',{});if(result.foreground===false)toast('Finestra oberta. Si Windows la manté darrere, selecciona-la a la barra de tasques.');}
  catch(e){$('desktop-copy').textContent='Copia la ruta';$('desktop-help-message').textContent=e.message;const relative=v.relative_path.replaceAll('/','\\');const folder=relative.includes('\\')?relative.slice(0,relative.lastIndexOf('\\')):'';$('desktop-help-path').value=v.root_path+(folder?'\\'+folder:'');$('desktop-help').showModal();}
 }

@@ -250,6 +250,54 @@ class Catalog(IdentityMixin, CollectionsMixin, WorkflowMixin, ActivityMixin, Rem
                 'total': len(ordered), 'page': page, 'limit': 'all' if all_items else limit,
                 'pages': 1 if all_items else max(1, (len(ordered)+limit-1)//limit)}
 
+    def duplicates(self, query):
+        """Whole-content matches from the last scan; never hash or mutate on a GET."""
+        candidates = self.videos({'limit': 'all', 'excluded': query.get('excluded', '')})['items']
+        matching = {v['id'] for v in self.videos({**query, 'limit': 'all'})['items']}
+        by_content = {}
+        unverified = 0
+        for v in candidates:
+            if v['retired'] or v['demo']:
+                continue
+            sha = v.get('sha256')
+            if not sha or len(sha) != 64 or any(c not in '0123456789abcdef' for c in sha):
+                unverified += 1
+                continue
+            by_content.setdefault((sha, v['size']), []).append(v)
+        with self.db() as db:
+            collections = {}
+            for row in db.execute('''SELECT cv.video_id,c.id,c.name FROM collection_videos cv
+                    JOIN collections c ON c.id=cv.collection_id ORDER BY c.name_key'''):
+                collections.setdefault(row['video_id'], []).append({'id': row['id'], 'name': row['name']})
+        groups = []
+        for (sha, size), items in by_content.items():
+            # Retired entries and duplicate references to one location are not extra copies.
+            locations = {}
+            for v in sorted(items, key=lambda v: v['id']):
+                location = os.path.normcase(os.path.normpath(str(Path(v['root_path']) / v['relative_path'])))
+                locations.setdefault(location, v)
+            items = list(locations.values())
+            if len(items) < 2 or not any(v['id'] in matching for v in items):
+                continue
+            items.sort(key=lambda v: (v['root_path'].casefold(), v['relative_path'].casefold(), v['id']))
+            for v in items:
+                v['collections'] = collections.get(v['id'], [])
+                v['matches_filters'] = v['id'] in matching
+                v['full_path'] = str(Path(v['root_path']) / v['relative_path'])
+            groups.append({'sha256': sha, 'size': size, 'items': items})
+        groups.sort(key=lambda g: (g['items'][0]['full_path'].casefold(), g['sha256']))
+        total = len(groups)
+        all_items = query.get('limit') == 'all'
+        limit = None if all_items else min(100, max(1, int(query.get('limit', '50'))))
+        pages = 1 if all_items else max(1, (total + limit - 1) // limit)
+        page = 1 if all_items else min(pages, max(1, int(query.get('page', '1'))))
+        shown = groups if all_items else groups[(page-1)*limit:page*limit]
+        return {'groups': shown, 'items': [v for g in shown for v in g['items']],
+                'total': sum(len(g['items']) for g in groups), 'total_groups': total,
+                'extra_copies': sum(len(g['items'])-1 for g in groups),
+                'unverified': unverified, 'page': page, 'pages': pages,
+                'limit': 'all' if all_items else limit}
+
     def folders(self):
         with self.db() as db:
             rows = db.execute('SELECT root_id,relative_path FROM videos').fetchall()

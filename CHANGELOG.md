@@ -1,5 +1,11 @@
 # Canvis
 
+## Pendent de publicació
+
+- Filtre Vídeos repetits: agrupació per SHA-256 completa i mida, amb rutes, propietaris, anotacions i col·leccions de cada còpia.
+- Els filtres seleccionen grups complets; la paginació no separa les còpies i els exclosos es consulten a part.
+- Consulta sense modificar originals ni anotacions; avís sobre empremtes de la darrera exploració i vídeos encara sense verificar.
+
 ## 1.0.1 — 2026-10-26
 
 - Normalització de rutes temporals a les proves: els noms curts de Windows (8.3) i les rutes completes no provoquen falses fallades a GitHub Actions.

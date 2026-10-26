@@ -42,3 +42,5 @@
 .activity-path{font-size:11px;line-height:1.6;color:var(--muted);overflow-wrap:anywhere;white-space:pre-wrap;user-select:text}
 
 #desktop-help-path{display:block;width:100%;padding:10px;border:1px solid var(--line);border-radius:5px;font-size:12px;margin:10px 0}#desktop-help>label{font-size:12px}
+
+.grid.duplicate-results{display:block}.duplicate-group{margin:0 0 30px;padding:18px;border:1px solid var(--line);border-radius:10px;background:#f0f3ec}.duplicate-group h2{font-size:14px;font-weight:600;margin:0 0 16px}.duplicate-grid{grid-template-columns:repeat(auto-fit,minmax(min(270px,100%),1fr))}.duplicate-path{font-size:11px;margin:10px 0;overflow-wrap:anywhere;user-select:text}.duplicate-owner,.duplicate-collections,.duplicate-context{font-size:11px;line-height:1.5;color:var(--muted);margin:8px 0}.duplicate-context{color:#886137}.duplicate-reveal{margin-top:5px}.duplicate-grid .card{max-width:560px}

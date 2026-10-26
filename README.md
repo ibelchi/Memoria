@@ -34,6 +34,7 @@ No obris `web/index.html` directament ni publiquis aquesta aplicació amb GitHub
 
 ## Possibilitats
 
+- Consulta de vídeos repetits per SHA-256 completa, agrupats amb rutes i anotacions independents.
 - Cerca per descripcions i etiquetes, tolerant accents i majúscules.
 - Carpetes i subcarpetes; filtre per propietari, dates, tipus Original/Muntatge, etiqueta, estat de catalogació i favorits.
 - Desament automàtic i catalogació progressiva: pendent si falta descripció o etiqueta; excepció conscient per a vídeos sense anotacions.

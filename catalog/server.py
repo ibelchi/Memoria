@@ -115,6 +115,8 @@ class Handler(BaseHTTPRequestHandler):
                     self.respond(c.folders())
                 elif path == '/api/videos':
                     self.respond(c.videos(query))
+                elif path == '/api/duplicates':
+                    self.respond(c.duplicates(query))
                 elif path == '/api/tags':
                     self.respond(c.tags())
                 elif path == '/api/collections':

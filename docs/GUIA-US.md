@@ -126,3 +126,14 @@ Si els botons no obren l’Explorador o el reproductor, comprova que has iniciat
 Si una carpeta no es pot llegir, comprova que el disc està connectat i que el teu compte de Windows hi té accés. Un propietari Belchi/Núria/Altres no substitueix els permisos de Windows.
 
 No esborris la carpeta de dades per resoldre un problema: conté les anotacions. Fes-ne una còpia abans de canvis importants.
+
+
+## 13. Consultar vídeos repetits
+
+A Filtres, activa Vídeos repetits. Es mostren grups de fitxers de la mateixa mida i empremta SHA-256 completa segons la darrera exploració. No és una comparació visual: vídeos retallats o recomprimits poden no coincidir.
+
+Cada còpia conserva les seves anotacions, etiquetes, propietari i col·leccions. Es mostra la ruta completa i tens Obre la carpeta per seleccionar el fitxer a Windows. Pots obrir el detall per utilitzar les accions habituals; no es fusiona ni s’elimina res automàticament.
+
+Els filtres seleccionen grups: si una còpia coincideix amb tots els filtres, es mostren també les altres còpies del grup, identificades com a context. La paginació compta grups i mai no els divideix; s’ordenen per ruta. Els exclosos es consulten per separat amb el filtre corresponent. Si exclous una còpia i només en queda una de visible, aquell grup desapareix de la consulta normal de repetits.
+
+Els fitxers o discos no disponibles poden aparèixer com a coincidències de la darrera exploració, amb un avís. Actualitza les carpetes si el contingut ha canviat. Els vídeos sense empremta completa no es consideren duplicats fins que s’hagin explorat.

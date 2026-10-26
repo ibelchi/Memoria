@@ -20,7 +20,7 @@
     <label>Tipus<select id="type-filter"><option value="">Tots</option><option value="original">Originals</option><option value="montage">Muntatges</option></select></label><label>Catalogació<select id="state"><option value="">Tots</option><option value="pending">Pendents de catalogar</option><option value="complete">Catalogats</option><option value="empty_by_choice">Sense anotacions per decisió</option></select></label>
     <label>Etiqueta<select id="tag-filter"><option value="">Qualsevol</option></select></label>
     <label class="check"><input type="checkbox" id="excluded-filter">Exclosos del catàleg</label><label class="check"><input type="checkbox" id="favorite-filter">Només favorits</label>
-    <label class="check"><input type="checkbox" id="unknown-date">Data desconeguda</label>
+    <label class="check"><input type="checkbox" id="duplicates-filter">Vídeos repetits</label><label class="check"><input type="checkbox" id="unknown-date">Data desconeguda</label>
     <button id="clear-filters" class="quiet">Neteja filtres</button>
   </section>
   <div class="scope-actions"><div id="scope" class="scope" hidden></div><button id="exclude-folder" class="quiet" hidden>Exclou aquesta carpeta</button></div>
@@ -30,7 +30,7 @@
     <div class="view-options"><label>Mostra <select id="page-size" aria-label="Vídeos per pàgina"><option value="25">25</option><option value="50" selected>50</option><option value="100">100</option><option value="all">Tots</option></select></label><label>Ordena <select id="sort"><option value="desc">Més recents primer</option><option value="asc">Més antics primer</option></select></label></div>
   </div>
   <p id="scan-progress" class="notice" role="status" hidden></p><div id="bulk" class="bulk" hidden><span id="selected-count"></span><button id="bulk-tags">Afegeix etiquetes</button><button id="bulk-dates">Corregeix hores</button><button id="bulk-review">Deixa sense anotacions</button><button id="bulk-collection">Afegeix a col·lecció</button><button id="bulk-uncollect" hidden>Treu de la col·lecció</button><button id="clear-selection" class="quiet">Cancel·la</button></div>
-  <section id="grid" class="grid" aria-label="Vídeos"></section>
+  <p id="duplicates-note" class="notice" hidden></p><section id="grid" class="grid" aria-label="Vídeos"></section>
   <div id="empty" class="empty" hidden><span>▷</span><h2 id="empty-title">Encara no hi ha vídeos</h2><p id="empty-text">Afegeix una carpeta de prova per començar.</p></div>
   <nav class="pagination" aria-label="Paginació inferior"><button id="previous-page" class="secondary">← Anterior</button><span id="page-label"></span><button id="next-page" class="secondary">Següent →</button></nav>
 </main>
