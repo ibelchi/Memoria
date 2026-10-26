@@ -68,9 +68,9 @@ La ubicació inicial és `runtime-personal/`, al costat del programa. `runtime-s
 
 El servei escolta només a `127.0.0.1`. No hi ha núvol, IA externa, fonts remotes ni telemetria. Els enllaços al web de l’autor i al canal d’inspiració només s’obren si els prems. No exposis el servidor a internet o a la xarxa local.
 
-## Dues persones al mateix ordinador
+## Diverses persones al mateix ordinador
 
-Aquesta versió té tres propietaris predefinits: **Belchi**, **Núria** i **Altres**, amb assignació obligatòria en incorporar carpetes. Són filtres de consulta, no comptes privats ni permisos.
+Aquesta versió té tres propietaris predefinits, amb assignació obligatòria en incorporar carpetes. Són filtres de consulta, no comptes privats ni permisos.
 
 Des de dos comptes Windows, utilitzeu una mateixa instal·lació, un mateix fitxer de configuració i una carpeta de dades accessible a tots dos. Cal verificar els permisos reals de cada compte. Eviteu editar simultàniament el mateix catàleg: encara no hi ha resolució de conflictes entre sessions.
 
