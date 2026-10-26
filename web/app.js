@@ -78,7 +78,7 @@ function card(v){
   favorite.setAttribute('aria-pressed',String(!!v.favorite));
   favorite.onclick=safe(async()=>{await flushAll();await api('/api/videos/'+v.id,'PATCH',{favorite:!v.favorite});await load();});
 
-  if(state.selecting){const check=element('input','select-box');check.type='checkbox';check.checked=state.selected.has(v.id);check.setAttribute('aria-label','Selecciona '+(d.text||'vídeo sense descripció'));check.onchange=()=>{check.checked?state.selected.add(v.id):state.selected.delete(v.id);updateSelection();};picture.append(check);}
+  {const check=element('input','select-box');check.type='checkbox';check.checked=state.selected.has(v.id);check.setAttribute('aria-label','Selecciona '+(d.text||'vídeo sense descripció'));check.onchange=()=>{state.selecting=true;check.checked?state.selected.add(v.id):state.selected.delete(v.id);article.classList.toggle('selected-card',check.checked);updateSelection();};article.classList.toggle('selected-card',check.checked);picture.append(check);}
   const body=element('div','card-body'),meta=element('div','card-meta');meta.append(element('div','card-date',dateText(v)),favorite);body.append(meta);
   const text=element('textarea','card-description');text.value=d.text;text.rows=2;text.placeholder='Afegeix una descripció…';text.maxLength=10000;text.setAttribute('aria-label','Descripció del vídeo');text.oninput=()=>edit(v,text.value);text.onblur=()=>flush(v.id).catch(e=>toast(e.message,true));body.append(text);
   const tags=element('div','tags');for(const t of v.tags)tags.append(element('span','tag',t.name));body.append(tags);
@@ -421,3 +421,42 @@ async function openDesktop(action,v=state.current){
 }
 $('desktop-help-close').onclick=()=>$('desktop-help').close();
 $('desktop-copy').onclick=safe(async()=>{await navigator.clipboard.writeText($('desktop-help-path').value);$('desktop-copy').textContent='Ruta copiada';});
+
+// Selection uses catalog IDs across pages; removal reuses the verified per-file protocol.
+let folderSelectionResult=null, bulkRemovalPlan=null, bulkRemovalBusy=false;
+async function allSelectionResults(){const q=currentQuery();q.set('limit','all');q.set('page','1');return api(($('duplicates-filter').checked?'/api/duplicates?':'/api/videos?')+q);}
+$('select-page').onclick=safe(async()=>{await flushAll();state.selecting=true;for(const v of state.items)if(state.selected.size<500)state.selected.add(v.id);await load();});
+$('select-folder').onclick=safe(async()=>{
+ await flushAll();folderSelectionResult=await allSelectionResults();const folders=new Set();
+ for(const v of folderSelectionResult.items){const parts=v.relative_path.replaceAll('\\','/').split('/');parts.pop();let path=v.root_path;folders.add(path);for(const part of parts){path+='\\'+part;folders.add(path);}}
+ $('selection-folder-path').replaceChildren();for(const path of [...folders].sort())$('selection-folder-path').append(new Option(path,path));
+ $('selection-folder-apply').disabled=!folders.size;$('selection-folder').showModal();
+});
+$('selection-folder-close').onclick=()=>$('selection-folder').close();
+$('selection-folder-apply').onclick=safe(async()=>{
+ const target=$('selection-folder-path').value.replaceAll('\\','/').toLowerCase().replace(/\/$/,'');
+ const inside=v=>{const path=(v.root_path+'/'+v.relative_path).replaceAll('\\','/').toLowerCase();return path.startsWith(target+'/');};
+ let items=[];let kept=0;
+ if(folderSelectionResult.groups){for(const group of folderSelectionResult.groups){let chosen=group.items.filter(inside);if(chosen.length===group.items.length){chosen=chosen.slice(1);kept++;}items.push(...chosen);}}
+ else items=folderSelectionResult.items.filter(inside);
+ state.selected=new Set(items.slice(0,500).map(v=>v.id));state.selecting=true;$('selection-folder').close();await load();toast(state.selected.size+' seleccionats'+(kept?' · '+kept+' grups amb una còpia reservada':'')+(items.length>500?' · límit de 500; continua en un altre lot.':''));
+});
+async function prepareBulkRemoval(action){
+ await flushAll();if(!state.selected.size){toast('Marca primer els vídeos.');return;}
+ if(state.selected.size>500)throw new Error('Selecciona com a màxim 500 vídeos per lot.');
+ const ids=[...state.selected];bulkRemovalPlan=null;$('bulk-removal-cancel').textContent='Cancel·la';$('bulk-removal-title').textContent=action==='recycle'?'Envia la selecció a la paperera':'Exclou la selecció del catàleg';
+ $('bulk-removal-summary').textContent=ids.length+' vídeos. '+(action==='recycle'?'Es retiraran els originals del disc i s’enviaran a la paperera de Windows.':'S’amagaran del catàleg; els originals no es tocaran.')+' Les anotacions es conserven. Revisa les rutes: les còpies poden tenir anotacions diferents. Si una operació falla, el lot s’atura i informa del que ja s’ha completat.';
+ $('bulk-removal-files').replaceChildren();$('bulk-removal-confirm').disabled=true;$('bulk-removal-status').textContent='Preparant la llista…';$('bulk-removal').showModal();
+ const plans=[];for(const id of ids){if(!$('bulk-removal').open)return;const v=await api('/api/videos/'+id);const plan=await api('/api/videos/'+id+'/removal-preview','POST',{action});plans.push({...plan,id});const row=element('div','bulk-file');row.append(element('pre','',plan.path),element('p','',v.description||'Sense descripció'),element('p','',v.tags.map(t=>t.name).join(', ')),element('p','','Col·leccions: '+v.collections.map(c=>c.name).join(', ')));$('bulk-removal-files').append(row);$('bulk-removal-status').textContent=plans.length+' / '+ids.length+' comprovats';}
+ if(!$('bulk-removal').open)return;bulkRemovalPlan=plans;$('bulk-removal-status').textContent='Preparat. Confirma només si vols actuar sobre aquests fitxers.';$('bulk-removal-confirm').disabled=false;
+}
+$('bulk-exclude').onclick=safe(()=>prepareBulkRemoval('exclude'));
+$('bulk-recycle').onclick=safe(()=>prepareBulkRemoval('recycle'));
+$('bulk-removal-cancel').onclick=()=>{if(!bulkRemovalBusy){bulkRemovalPlan=null;$('bulk-removal').close();}};
+$('bulk-removal').oncancel=e=>{if(bulkRemovalBusy)e.preventDefault();else bulkRemovalPlan=null;};
+$('bulk-removal-confirm').onclick=safe(async()=>{
+ if(!bulkRemovalPlan||bulkRemovalBusy)return;bulkRemovalBusy=true;$('bulk-removal-confirm').disabled=true;$('bulk-removal-cancel').disabled=true;let done=0;let error='';
+ try{for(const plan of bulkRemovalPlan){try{await api('/api/videos/'+plan.id+'/removal-confirm','POST',{token:plan.token});state.selected.delete(plan.id);done++;$('bulk-removal-status').textContent=done+' / '+bulkRemovalPlan.length+' completats';}catch(e){error=e.message;break;}}
+ $('bulk-removal-status').textContent=done+' completats.'+(error?' Lot aturat: '+error+' Els pendents continuen seleccionats. Torna a preparar el lot.':'');bulkRemovalPlan=null;await refreshNavigation();await load();
+ }finally{bulkRemovalBusy=false;$('bulk-removal-cancel').disabled=false;$('bulk-removal-cancel').textContent='Tanca';}
+});

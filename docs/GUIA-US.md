@@ -137,3 +137,10 @@ Cada còpia conserva les seves anotacions, etiquetes, propietari i col·leccions
 Els filtres seleccionen grups: si una còpia coincideix amb tots els filtres, es mostren també les altres còpies del grup, identificades com a context. La paginació compta grups i mai no els divideix; s’ordenen per ruta. Els exclosos es consulten per separat amb el filtre corresponent. Si exclous una còpia i només en queda una de visible, aquell grup desapareix de la consulta normal de repetits.
 
 Els fitxers o discos no disponibles poden aparèixer com a coincidències de la darrera exploració, amb un avís. Actualitza les carpetes si el contingut ha canviat. Els vídeos sense empremta completa no es consideren duplicats fins que s’hagin explorat.
+
+
+### Selecció i accions en lot
+
+Les caselles de les targetes permeten seleccionar vídeos a qualsevol vista. La selecció es conserva entre pàgines. A la barra de selecció, Marca aquesta pàgina afegeix els visibles; Marca per carpeta substitueix la selecció pels resultats d’una carpeta i subcarpetes, també d’altres pàgines. El màxim és de 500 vídeos per lot. En repetits, aquesta selecció per carpeta reserva una còpia de cada grup si altrament les marcaria totes; la selecció manual continua sota el teu control.
+
+Exclou del catàleg i Envia a la paperera actuen sobre la selecció després d’una confirmació amb rutes i anotacions. La primera opció no toca originals; la segona utilitza la paperera de Windows, amb les comprovacions de contingut habituals. Les operacions són seqüencials: si una falla, el lot s’atura, informa dels completats i manté seleccionats els pendents. No es promet una reversió automàtica del lot. Cancel·la o Acaba la selecció buida les marques.
