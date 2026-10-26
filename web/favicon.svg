@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <style>g{fill:#273b37}@media(prefers-color-scheme:dark){g{fill:#edf2e9}}</style>
+  <g>
+    <circle cx="27" cy="28" r="19"/>
+    <circle cx="65" cy="28" r="19"/>
+    <rect x="14" y="44" width="63" height="41" rx="8"/>
+    <path d="M74 55 Q77 56 80 54 L96 47 Q99 46 99 50 V76 Q99 80 96 79 L80 72 Q77 70 74 72Z"/>
+  </g>
+</svg>

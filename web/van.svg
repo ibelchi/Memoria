@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="410" height="487" viewBox="0 0 410 487" role="img" aria-label="Símbol de cinema">
+  <rect x="65" y="130" width="280" height="220" rx="24" fill="#e6ebe3"/>
+  <circle cx="145" cy="205" r="28" fill="#6b8074"/>
+  <circle cx="265" cy="205" r="28" fill="#6b8074"/>
+  <path d="M183 258v58l55-29z" fill="#426b5a"/>
+</svg>
