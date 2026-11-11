@@ -213,7 +213,9 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(self.c.videos({'state': 'pending'})['total'], 0)
         self.c.patch(self.ident, {'description': 'Una escena'})
         self.assertFalse(self.c.video(self.ident)['omit_annotations'])
-        self.assertEqual(self.c.video(self.ident)['catalog_status'], 'pending')
+        self.assertEqual(self.c.video(self.ident)['catalog_status'], 'complete')
+        self.assertEqual({v['id'] for v in self.c.videos({'state': 'complete'})['items']},
+                         {self.ident})
         with self.assertRaises(ValueError):
             self.c.annotation_decision([self.ident], True)
         self.assertEqual(self.c.video(self.ident)['description'], 'Una escena')
@@ -221,7 +223,25 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(self.c.video(self.ident)['catalog_status'], 'complete')
         self.assertEqual(self.c.videos({'state': 'complete'})['total'], 1)
         self.c.apply_tags([self.ident], ['família'], remove=True)
-        self.assertEqual(self.c.video(self.ident)['catalog_status'], 'pending')
+        self.assertEqual(self.c.video(self.ident)['catalog_status'], 'complete')
+
+    def test_catalog_filter_accepts_description_or_tags(self):
+        self.c.patch(self.ident, {'description': 'Descripció sense etiquetes'})
+        tagged_file = self.root/'tagged.mp4'
+        tagged_file.write_bytes(b'tag-only-fixture')
+        tagged, _ = self.c.identify(self.rid, tagged_file, tagged_file.name)
+        self.c.apply_tags([tagged], ['Només etiqueta'])
+        empty_file = self.root/'empty.mp4'
+        empty_file.write_bytes(b'empty-fixture')
+        empty, _ = self.c.identify(self.rid, empty_file, empty_file.name)
+
+        self.assertEqual(self.c.video(self.ident)['catalog_status'], 'complete')
+        self.assertEqual(self.c.video(tagged)['catalog_status'], 'complete')
+        self.assertEqual(self.c.video(empty)['catalog_status'], 'pending')
+        self.assertEqual({v['id'] for v in self.c.videos({'state': 'complete'})['items']},
+                         {self.ident, tagged})
+        self.assertEqual({v['id'] for v in self.c.videos({'state': 'pending'})['items']},
+                         {empty})
 
     def test_tag_add_clears_exception_and_bulk_decision_is_atomic(self):
         second = self.root/'second.mp4'
@@ -234,7 +254,9 @@ class WorkflowTests(unittest.TestCase):
         self.c.annotation_decision([self.ident], True)
         self.c.apply_tags([self.ident], ['nova'])
         self.assertFalse(self.c.video(self.ident)['omit_annotations'])
-        self.assertEqual(self.c.video(self.ident)['catalog_status'], 'pending')
+        self.assertEqual(self.c.video(self.ident)['catalog_status'], 'complete')
+        self.assertEqual({v['id'] for v in self.c.videos({'state': 'complete'})['items']},
+                         {self.ident, other})
 
     def test_owner_required_and_existing_ownership_does_not_change_silently(self):
         other = self.base/'other'

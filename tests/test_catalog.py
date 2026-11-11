@@ -132,6 +132,100 @@ class CatalogTests(unittest.TestCase):
             self.c.path_for('ab123')
 
 
+class PreviewTranscodeTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.base = Path(self.tmp.name).resolve()
+        self.c = Catalog(self.base/'data')
+        self.root = self.base/'scanned-videos'
+        self.root.mkdir()
+        self.source = self.root/'pixel.mp4'
+        self.source.write_bytes(b'hevc-source-fixture')
+        rid = self.c.add_root(str(self.root), 'belchi')
+        self.ident = 'abcdefab-1234-1234-1234-123456789abc'
+        with self.c.db() as db:
+            db.execute('INSERT INTO videos(id,root_id,relative_path,codec) VALUES(?,?,?,?)',
+                       (self.ident, rid, self.source.name, 'hevc'))
+            db.execute('INSERT INTO annotations(video_id,updated_at) VALUES(?,?)', (self.ident, 'now'))
+        from types import SimpleNamespace
+        from catalog.server import Handler
+        self.handler = object.__new__(Handler)
+        self.handler.server = SimpleNamespace(catalog=self.c, preview_lock=threading.RLock(),
+                                              preview_cache_limit=3_000_000_000,
+                                              preview_in_use=set())
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_hevc_preview_is_cached_outside_scanned_roots(self):
+        def fake_ffmpeg(args, timeout):
+            Path(args[-1]).write_bytes(b'h264-preview-fixture')
+        with patch('catalog.server.executable', return_value='ffmpeg.exe'), \
+             patch('catalog.server.run_media', side_effect=fake_ffmpeg) as convert:
+            self.assertEqual(self.handler.prepare_preview(self.ident), {'ready': True, 'cached': False})
+            cache = self.c.data_dir/'preview-cache'
+            self.assertFalse(cache.resolve().is_relative_to(self.root.resolve()))
+            self.assertEqual(self.handler.preview_path(self.ident).read_bytes(), b'h264-preview-fixture')
+            self.assertEqual(self.handler.prepare_preview(self.ident), {'ready': True, 'cached': True})
+            convert.assert_called_once()
+        self.assertEqual(self.source.read_bytes(), b'hevc-source-fixture')
+        self.assertEqual(self.c.videos({})['total'], 1)
+
+    def test_preview_cache_evicts_lru_protects_in_use_and_regenerates(self):
+        cache = self.c.data_dir/'preview-cache'
+        cache.mkdir(exist_ok=True)
+        first = cache/'aaaaaaaa-1111-1111-1111-111111111111-1-1.mp4'
+        second = cache/'bbbbbbbb-1111-1111-1111-111111111111-1-1.mp4'
+        unrelated = cache/'thumbnail.jpg'
+        first.write_bytes(b'1111')
+        second.write_bytes(b'2222')
+        unrelated.write_bytes(b'leave-me')
+        import os
+        os.utime(first, ns=(1_000_000_000, 1_000_000_000))
+        os.utime(second, ns=(2_000_000_000, 2_000_000_000))
+        self.handler.server.preview_cache_limit = 6
+        self.handler.server.preview_in_use = {second.resolve()}
+        self.handler.preview_cleanup()
+        self.assertFalse(first.exists())
+        self.assertTrue(second.exists())
+        self.assertTrue(unrelated.exists())
+        self.handler.server.preview_in_use.clear()
+
+        def fake_ffmpeg(args, timeout):
+            Path(args[-1]).write_bytes(b'new')
+        with patch('catalog.server.executable', return_value='ffmpeg.exe'), \
+             patch('catalog.server.run_media', side_effect=fake_ffmpeg):
+            self.assertEqual(self.handler.prepare_preview(self.ident), {'ready': True, 'cached': False})
+            self.assertTrue(self.handler.preview_path(self.ident).is_file())
+        self.assertEqual(self.source.read_bytes(), b'hevc-source-fixture')
+        self.assertTrue(unrelated.exists())
+
+    def test_oversized_preview_is_not_retained(self):
+        self.handler.server.preview_cache_limit = 4
+        def fake_ffmpeg(args, timeout):
+            Path(args[-1]).write_bytes(b'too-large')
+        with patch('catalog.server.executable', return_value='ffmpeg.exe'), \
+             patch('catalog.server.run_media', side_effect=fake_ffmpeg):
+            with self.assertRaisesRegex(ValueError, 'supera el límit'):
+                self.handler.prepare_preview(self.ident)
+        self.assertFalse(list((self.c.data_dir/'preview-cache').glob('*.mp4')))
+        self.assertEqual(self.source.read_bytes(), b'hevc-source-fixture')
+
+    def test_hevc_fallback_is_enabled_in_detail_player(self):
+        root = Path(__file__).resolve().parents[1]
+        script = (root/'web'/'app.js').read_text(encoding='utf-8')
+        html = (root/'web'/'index.html').read_text(encoding='utf-8')
+        self.assertIn("['h264','hevc','vp8','vp9','av1']", script)
+        self.assertIn("'/prepare-preview'", script)
+        self.assertIn("'/preview-stream'", script)
+        self.assertIn('Reprodueix en mode compatible', html)
+        self.assertIn("$('compatible-playback').onclick", script)
+        self.assertIn("await prepareHevcPlayback(player,video)", script)
+        self.assertIn("player.src='/api/videos/'+video.id+'/preview-stream'", script)
+        self.assertIn("player.src='/api/videos/'+v.id+'/stream'", script)
+        self.assertIn("v.codec!=='hevc'", script)
+
+
 class HttpTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -188,13 +282,6 @@ class HttpTests(unittest.TestCase):
                 launch.assert_called_once_with(file,**options)
             with patch('catalog.server.open_desktop_path',side_effect=ValueError('restricted')):
                 self.assertEqual(self.request('POST','/api/videos/'+ident+'/'+suffix,{},headers)[0],400)
-
-    def test_transcoding_is_unavailable_and_creates_no_copies(self):
-        ident=self.c.videos({})['items'][0]['id']
-        status,_,_=self.request('POST','/api/videos/'+ident+'/prepare-preview',{},headers={'X-Catalog-Token':self.server.token})
-        self.assertEqual(status,404)
-        self.assertEqual(self.request('GET','/api/videos/'+ident+'/preview-stream')[0],404)
-        self.assertFalse((self.c.data_dir/'preview-cache').exists())
 
     def test_external_origins_and_host_and_token(self):
         ident = self.c.videos({})['items'][0]['id']

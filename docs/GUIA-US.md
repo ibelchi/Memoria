@@ -10,7 +10,7 @@ Els vídeos continuen on són. Afegir una carpeta no copia els vídeos ni les fo
 
 ## 2. Com iniciar i tancar l’aplicació
 
-1. Obre la carpeta on està instal·lada Memòria i fes doble clic a Inicia-Memoria.cmd des de Windows. No cal executar-lo com a administrador.
+1. Obre la carpeta on està instal·lada Memòria i fes doble clic a Inicia-Memoria.cmd des de l’Explorador de fitxers. No cal executar-lo com a administrador.
 2. Deixa oberta la finestra del servei. S’obrirà el navegador a http://127.0.0.1:8765/. Si ja està en marxa, pots entrar directament en aquesta adreça.
 3. Per sortir, ves a la roda dentada de Configuració i prem Tanca l’aplicació. Es farà una còpia del catàleg i s’aturarà el servei.
 
@@ -43,7 +43,9 @@ Carpetes i Col·leccions estan plegades inicialment: desplega-les només quan le
 
 Pots mostrar 25, 50, 100 o tots els vídeos per pàgina. Per defecte en veus 50. Hi ha Anterior i Següent a la part superior i inferior.
 
-Prem la miniatura per obrir el detall. Els vídeos compatibles es reprodueixen al navegador. Si un format antic no hi funciona, prem Obre la carpeta del vídeo: s’obre l’Explorador amb el fitxer seleccionat perquè el puguis trobar i reproduir des de Windows; també tens el botó del reproductor del sistema. No es generen conversions ni còpies completes dels vídeos.
+Prem la miniatura per obrir el detall. Els vídeos compatibles es reprodueixen al navegador. Si l’HEVC no hi funciona, prem **Reprodueix en mode compatible**. FFmpeg prepara una còpia H.264/AAC a la memòria cau local i el navegador reprodueix aquesta còpia. La primera conversió pot trigar; les següents reproduccions reutilitzen la còpia si l’original no ha canviat. L’original no es modifica. Si falla, utilitza **Obre la carpeta del vídeo** o el reproductor del sistema.
+
+La memòria cau admet fins a 3 GB. En generar una còpia nova, si cal espai s’eliminen primer les còpies menys utilitzades recentment. Una còpia que s’està reproduint queda protegida de la neteja. Si un únic vídeo supera el límit, la còpia no es conserva.
 
 Les finestres externes intenten aparèixer al davant. Si Windows no ho permet, busca-les a la barra de tasques o amb Alt+Tab.
 
@@ -51,7 +53,7 @@ Les finestres externes intenten aparèixer al davant. Si Windows no ho permet, b
 
 Pots escriure la descripció directament a la targeta o al detall. Es desa automàticament: espera que indiqui Desat abans de tancar l’aplicació. Les etiquetes s’afegeixen al detall i es poden retirar amb el seu botó.
 
-Un vídeo està Catalogat quan té una descripció no buida i almenys una etiqueta. Si falta alguna de les dues coses, surt a Pendents de catalogar.
+Un vídeo està **Catalogat** quan té una descripció no buida **o** almenys una etiqueta. Si no té ni descripció ni etiquetes, surt a Pendents de catalogar.
 
 Si decideixes conscientment no anotar un vídeo completament buit, prem Deixa sense anotacions. Deixarà de sortir als pendents. Torna a pendents desfà aquesta decisió; afegir-hi text o etiquetes també la retira. Aquesta opció no esborra anotacions existents.
 

@@ -5,15 +5,17 @@ from pathlib import Path
 import re
 import secrets
 import subprocess
+import tempfile
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
-from .core import executable, run_media
+from .core import executable, run_media, within
 from .storage import StorageController
 from .workflow import OWNERS
 from .desktop import open_desktop_path, restricted_desktop
 
 STATIC = Path(__file__).resolve().parent.parent / 'web'
+PREVIEW_CACHE_LIMIT = 3_000_000_000
 
 
 class LocalServer(ThreadingHTTPServer):
@@ -23,10 +25,14 @@ class LocalServer(ThreadingHTTPServer):
         self.catalog = catalog
         self.token = secrets.token_urlsafe(32)
         self.request_lock = threading.RLock()
+        self.preview_lock = threading.RLock()
+        self.preview_in_use = set()
+        self.preview_cache_limit = PREVIEW_CACHE_LIMIT
         self.picker_lock = threading.Lock()
         self.storage = StorageController(self, config_file)
         super().__init__(('127.0.0.1', port), Handler)
         self.origin = 'http://127.0.0.1:' + str(self.server_port)
+        self.preview_cleanup()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -84,7 +90,8 @@ class Handler(BaseHTTPRequestHandler):
         self.handle_request('PATCH')
 
     def handle_request(self, method):
-        if method != 'GET' and not urlsplit(self.path).path.endswith('/pick'):
+        request_path = urlsplit(self.path).path
+        if method != 'GET' and not (request_path.endswith('/pick') or request_path.endswith('/prepare-preview')):
             with self.server.request_lock:
                 return self.handle_locked(method)
         return self.handle_locked(method)
@@ -128,7 +135,7 @@ class Handler(BaseHTTPRequestHandler):
                                     headers={'Content-Disposition': 'attachment; filename="cataleg-anotacions.json"'})
                 elif path.startswith('/api/scans/'):
                     self.respond(c.scan_status(path.rsplit('/', 1)[1]))
-                elif re.fullmatch(r'/api/videos/[a-f0-9-]+(?:/(?:stream|thumbnail))?', path):
+                elif re.fullmatch(r'/api/videos/[a-f0-9-]+(?:/(?:stream|thumbnail|preview-stream))?', path):
                     parts = path.split('/')
                     ident = parts[3]
                     v = c.video(ident)
@@ -136,6 +143,8 @@ class Handler(BaseHTTPRequestHandler):
                         self.respond(v)
                     elif parts[4] == 'stream':
                         self.stream(c.path_for(ident))
+                    elif parts[4] == 'preview-stream':
+                        self.stream_preview(self.preview_path(ident))
                     elif v['demo']:
                         self.sample_thumbnail(v)
                     else:
@@ -158,6 +167,8 @@ class Handler(BaseHTTPRequestHandler):
                     self.respond(c.patch(path.rsplit('/', 1)[1], data))
                 elif method == 'POST' and re.fullmatch('/api/videos/[a-f0-9-]+/removal-preview', path):
                     self.respond(c.preview_removal(path.split('/')[3], data.get('action')))
+                elif method == 'POST' and re.fullmatch('/api/videos/[a-f0-9-]+/prepare-preview', path):
+                    self.respond(self.prepare_preview(path.split('/')[3]))
                 elif method == 'POST' and re.fullmatch('/api/videos/[a-f0-9-]+/removal-confirm', path):
                     self.respond(c.apply_removal(path.split('/')[3], data.get('token')))
                 elif method == 'POST' and path == '/api/folder-exclusions/preview':
@@ -321,6 +332,111 @@ try {
                     break
                 self.wfile.write(chunk)
                 remaining -= len(chunk)
+
+    def stream_preview(self, path):
+        key = path.resolve()
+        with self.server.preview_lock:
+            self.server.preview_in_use.add(key)
+            if path.is_file():
+                os.utime(path, None)
+        try:
+            self.stream(path)
+        finally:
+            with self.server.preview_lock:
+                self.server.preview_in_use.discard(key)
+                self.preview_cleanup()
+
+    def preview_cache_dir(self):
+        catalog = self.server.catalog
+        roots = [Path(root['path']) for root in catalog.roots()]
+        candidates = (catalog.data_dir / 'preview-cache',
+                      Path(tempfile.gettempdir()) / 'Memoria-preview-cache' / catalog.catalog_id)
+        for cache in candidates:
+            if not any(within(cache, root) for root in roots):
+                return cache
+        raise ValueError('No hi ha cap ubicació de memòria cau fora de les carpetes escanejades.')
+
+    def preview_cleanup(self):
+        """Evict least recently used generated previews over the cache limit."""
+        limit = max(0, int(getattr(self.server, 'preview_cache_limit', PREVIEW_CACHE_LIMIT)))
+        cache = self.preview_cache_dir()
+        with self.server.preview_lock:
+            files = []
+            total = 0
+            if cache.is_dir():
+                for path in cache.iterdir():
+                    if not path.is_file() or not re.fullmatch(r'[a-f0-9-]+-\d+-\d+\.mp4', path.name):
+                        continue
+                    try:
+                        stat = path.stat()
+                    except OSError:
+                        continue
+                    files.append((stat.st_mtime_ns, path, stat.st_size))
+                    total += stat.st_size
+            for _, path, size in sorted(files):
+                if total <= limit:
+                    break
+                if path.resolve() in self.server.preview_in_use:
+                    continue
+                try:
+                    path.unlink()
+                    total -= size
+                except FileNotFoundError:
+                    total -= size
+
+    def preview_path(self, ident):
+        video = self.server.catalog.video(ident)
+        source = self.server.catalog.path_for(ident)
+        if video.get('codec') != 'hevc':
+            raise ValueError('Aquest vídeo no necessita una còpia de reproducció HEVC.')
+        stat = source.stat()
+        target = self.preview_cache_dir() / f'{ident}-{stat.st_size}-{stat.st_mtime_ns}.mp4'
+        if not target.is_file():
+            raise FileNotFoundError('La còpia de reproducció encara no està preparada.')
+        return target
+
+    def prepare_preview(self, ident):
+        catalog = self.server.catalog
+        video = catalog.video(ident)
+        source = catalog.path_for(ident)
+        if video.get('codec') != 'hevc':
+            raise ValueError('La preparació només és necessària per a vídeos HEVC.')
+        ffmpeg = executable('ffmpeg')
+        if not ffmpeg:
+            raise ValueError('No s’ha trobat ffmpeg.exe; no es pot preparar la còpia H.264.')
+        stat = source.stat()
+        cache = self.preview_cache_dir()
+        target = cache / f'{ident}-{stat.st_size}-{stat.st_mtime_ns}.mp4'
+        if target.is_file():
+            with self.server.preview_lock:
+                os.utime(target, None)
+            return {'ready': True, 'cached': True}
+        cache.mkdir(parents=True, exist_ok=True)
+        temporary = cache / f'.{target.stem}-{os.getpid()}-{threading.get_ident()}.tmp.mp4'
+        with self.server.preview_lock:
+            if target.is_file():
+                os.utime(target, None)
+                return {'ready': True, 'cached': True}
+            self.server.preview_in_use.add(target.resolve())
+            try:
+                run_media([ffmpeg, '-nostdin', '-hide_banner', '-v', 'error', '-y', '-i', str(source),
+                           '-map', '0:v:0', '-map', '0:a?', '-c:v', 'libx264', '-preset', 'veryfast',
+                           '-crf', '23', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k',
+                           '-map_metadata', '0', '-movflags', '+faststart', str(temporary)], timeout=7200)
+                if not temporary.is_file() or temporary.stat().st_size == 0:
+                    raise ValueError('ffmpeg no ha generat una còpia H.264 vàlida.')
+                temporary.replace(target)
+                if target.stat().st_size > self.server.preview_cache_limit:
+                    target.unlink()
+                    raise ValueError('La còpia supera el límit de 3 GB i no es conservarà a la memòria cau.')
+                self.server.preview_in_use.discard(target.resolve())
+                self.preview_cleanup()
+            except Exception:
+                temporary.unlink(missing_ok=True)
+                raise
+            finally:
+                self.server.preview_in_use.discard(target.resolve())
+        return {'ready': True, 'cached': False}
 
     def sample_thumbnail(self, v, placeholder=False):
         palette = [('#e9d7b3','#84aeb6','#42717c'), ('#cbd9b8','#75916c','#3b6153'),
