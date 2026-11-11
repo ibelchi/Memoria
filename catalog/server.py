@@ -18,6 +18,45 @@ STATIC = Path(__file__).resolve().parent.parent / 'web'
 PREVIEW_CACHE_LIMIT = 3_000_000_000
 
 
+def preview_cache_dir(catalog):
+    roots = [Path(root['path']) for root in catalog.roots()]
+    candidates = (catalog.data_dir / 'preview-cache',
+                  Path(tempfile.gettempdir()) / 'Memoria-preview-cache' / catalog.catalog_id)
+    for cache in candidates:
+        if not any(within(cache, root) for root in roots):
+            return cache
+    raise ValueError('No hi ha cap ubicació de memòria cau fora de les carpetes escanejades.')
+
+
+def cleanup_preview_cache(server):
+    """Evict least recently used generated previews over the cache limit."""
+    limit = max(0, int(getattr(server, 'preview_cache_limit', PREVIEW_CACHE_LIMIT)))
+    cache = preview_cache_dir(server.catalog)
+    with server.preview_lock:
+        files = []
+        total = 0
+        if cache.is_dir():
+            for path in cache.iterdir():
+                if not path.is_file() or not re.fullmatch(r'[a-f0-9-]+-\d+-\d+\.mp4', path.name):
+                    continue
+                try:
+                    stat = path.stat()
+                except OSError:
+                    continue
+                files.append((stat.st_mtime_ns, path, stat.st_size))
+                total += stat.st_size
+        for _, path, size in sorted(files):
+            if total <= limit:
+                break
+            if path.resolve() in server.preview_in_use:
+                continue
+            try:
+                path.unlink()
+                total -= size
+            except FileNotFoundError:
+                total -= size
+
+
 class LocalServer(ThreadingHTTPServer):
     daemon_threads = True
 
@@ -32,7 +71,7 @@ class LocalServer(ThreadingHTTPServer):
         self.storage = StorageController(self, config_file)
         super().__init__(('127.0.0.1', port), Handler)
         self.origin = 'http://127.0.0.1:' + str(self.server_port)
-        self.preview_cleanup()
+        cleanup_preview_cache(self)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -347,42 +386,10 @@ try {
                 self.preview_cleanup()
 
     def preview_cache_dir(self):
-        catalog = self.server.catalog
-        roots = [Path(root['path']) for root in catalog.roots()]
-        candidates = (catalog.data_dir / 'preview-cache',
-                      Path(tempfile.gettempdir()) / 'Memoria-preview-cache' / catalog.catalog_id)
-        for cache in candidates:
-            if not any(within(cache, root) for root in roots):
-                return cache
-        raise ValueError('No hi ha cap ubicació de memòria cau fora de les carpetes escanejades.')
+        return preview_cache_dir(self.server.catalog)
 
     def preview_cleanup(self):
-        """Evict least recently used generated previews over the cache limit."""
-        limit = max(0, int(getattr(self.server, 'preview_cache_limit', PREVIEW_CACHE_LIMIT)))
-        cache = self.preview_cache_dir()
-        with self.server.preview_lock:
-            files = []
-            total = 0
-            if cache.is_dir():
-                for path in cache.iterdir():
-                    if not path.is_file() or not re.fullmatch(r'[a-f0-9-]+-\d+-\d+\.mp4', path.name):
-                        continue
-                    try:
-                        stat = path.stat()
-                    except OSError:
-                        continue
-                    files.append((stat.st_mtime_ns, path, stat.st_size))
-                    total += stat.st_size
-            for _, path, size in sorted(files):
-                if total <= limit:
-                    break
-                if path.resolve() in self.server.preview_in_use:
-                    continue
-                try:
-                    path.unlink()
-                    total -= size
-                except FileNotFoundError:
-                    total -= size
+        cleanup_preview_cache(self.server)
 
     def preview_path(self, ident):
         video = self.server.catalog.video(ident)

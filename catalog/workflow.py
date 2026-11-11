@@ -5,7 +5,7 @@ OWNERS = {'belchi': 'Belchi', 'nuria': 'Núria', 'altres': 'Altres'}
 
 
 def catalog_status(description, tags, omitted):
-    if description.strip() and tags:
+    if description.strip() or tags:
         return 'complete'
     if omitted and not description.strip() and not tags:
         return 'empty_by_choice'
